@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deep Goal Tracker v1.1</title>
+    <title>Deep Goal Tracker v1.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom Scrollbar */
@@ -16,7 +16,7 @@
             background-color: rgba(30, 30, 30, 0.6);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.2s ease; 
+            transition: all 0.2s ease;
         }
         
         .selected-box {
@@ -26,7 +26,6 @@
 
         .group:hover .delete-btn { opacity: 1; }
         
-        /* Action buttons for years */
         .year-action-btn {
             @apply w-8 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded border border-gray-600 transition shadow-lg cursor-pointer;
         }
@@ -37,10 +36,10 @@
     <div class="fixed inset-0 z-[-1] opacity-20 bg-[url('https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?q=80&w=2074&auto=format&fit=crop')] bg-cover bg-center"></div>
 
     <div class="flex justify-end items-center px-4 py-3 gap-2 shrink-0 sticky top-0 z-50">
-        <button onclick="downloadData()" class="bg-gray-800 hover:bg-gray-700 text-white text-xs px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1 shadow-lg transition">
+        <button onclick="downloadData()" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1 shadow-lg transition">
             <span>⬇</span> Save
         </button>
-        <button onclick="document.getElementById('file-input').click()" class="bg-gray-800 hover:bg-gray-700 text-white text-xs px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1 shadow-lg transition">
+        <button onclick="document.getElementById('file-input').click()" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1 shadow-lg transition">
             <span>⬆</span> Load
         </button>
         <input type="file" id="file-input" class="hidden" accept=".json" onchange="loadData(this)">
@@ -48,22 +47,20 @@
 
     <div class="flex-1 flex flex-col px-3 pb-3 gap-3">
 
-        <div class="w-full glass-panel rounded-lg p-2 flex flex-col h-full shrink-0">
-            <div class="flex justify-between items-center border-b border-gray-700 pb-1 mb-1 shrink-0">
-                <h2 class="text-white font-bold text-xs uppercase tracking-wide">Life Goals</h2>
-                <button onclick="addItem('life')" class="text-[10px] bg-gray-700 hover:bg-gray-600 text-white px-2 py-0.5 rounded transition shadow">+ Add Goal</button>
+        <div class="w-full glass-panel rounded-lg p-3 flex flex-col h-full shrink-0">
+            <div class="flex justify-between items-center border-b border-gray-700 pb-2 mb-2 shrink-0">
+                <h2 class="text-white font-bold text-sm uppercase tracking-wide">Life Goals</h2>
+                <button onclick="addItem('life')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded transition shadow">+ Add Goal</button>
             </div>
-            <div id="life-goals-container" class="flex-1 overflow-y-auto pr-1 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 content-start"></div>
+            <div id="life-goals-container" class="flex-1 overflow-y-auto pr-1 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 content-start"></div>
         </div>
 
         <br>
 
         <div class="flex gap-2 h-full shrink-0">
-            <button onclick="removeOldestYear()" class="year-action-btn text-lg font-bold hover:bg-red-900/50 hover:border-red-500 hover:text-red-200" title="Remove Oldest Year">−</button>
-            
+            <button onclick="removeOldestYear()" class="year-action-btn text-xl font-bold hover:bg-red-900/50 hover:border-red-500 hover:text-red-200" title="Remove Oldest Year">−</button>
             <div id="years-container" class="flex-1 flex gap-2 overflow-x-auto pb-1"></div>
-            
-            <button onclick="addNewYear()" class="year-action-btn text-lg font-bold hover:bg-green-900/50 hover:border-green-500 hover:text-green-200" title="Add Next Year">+</button>
+            <button onclick="addNewYear()" class="year-action-btn text-xl font-bold hover:bg-green-900/50 hover:border-green-500 hover:text-green-200" title="Add Next Year">+</button>
         </div>
 
         <br>
@@ -77,10 +74,10 @@
         <br>
 
         <div class="glass-panel rounded-lg p-0 overflow-hidden flex flex-col ">
-            <div class="grid grid-cols-7 border-b border-gray-700 bg-black/20 text-[10px] font-bold text-gray-400 py-1 text-center shrink-0">
+            <div class="grid grid-cols-7 border-b border-gray-700 bg-black/20 text-xs font-bold text-gray-400 py-1.5 text-center shrink-0">
                 <div>MO</div><div>TU</div><div>WE</div><div>TH</div><div>FR</div><div>SA</div><div>SU</div>
             </div>
-            <div id="calendar-header" class="text-xs text-center py-0.5 text-orange-500 font-bold bg-black/10 shrink-0"></div>
+            <div id="calendar-header" class="text-sm text-center py-1 text-orange-500 font-bold bg-black/10 shrink-0"></div>
             <div id="calendar-grid" class="grid grid-cols-7 grid-rows-6 h-full overflow-hidden"></div>
         </div>
 
@@ -101,15 +98,15 @@
             life: [],
             years: {},
             months: {},
-            weeks: {}, // New weeks storage
+            weeks: {}, 
             days: {},
-            yearList: [2026, 2027, 2028, 2029, 2030] // Stores which years are visible
+            yearList: [2026, 2027, 2028, 2029, 2030] 
         };
 
         // Load Data
         let appData = JSON.parse(localStorage.getItem('goalApp_v11')) || defaultData;
 
-        // Ensure new data structures exist if loading from old version
+        // Ensure new data structures exist
         if (!appData.weeks) appData.weeks = {};
         if (!appData.yearList) appData.yearList = [2026, 2027, 2028, 2029, 2030];
 
@@ -171,7 +168,7 @@
         function removeOldestYear() {
             if (appData.yearList.length <= 1) return;
             if(!confirm("Remove oldest year from view?")) return;
-            appData.yearList.shift(); // Removes first element
+            appData.yearList.shift(); 
             saveData();
         }
 
@@ -180,24 +177,25 @@
             renderLifeGoals();
             renderYears();
             renderMonths();
-            renderWeeks(); // New
+            renderWeeks(); 
             renderCalendar();
         }
 
+        // Updated font size here: text-[10px] -> text-xs
         function createItemHTML(item, type, key) {
             return `
-                <div class="flex items-start gap-1.5 group justify-between w-full mb-1" onclick="event.stopPropagation()">
-                    <div class="flex items-start gap-1.5 min-w-0 flex-1">
+                <div class="flex items-start gap-2 group justify-between w-full mb-1.5" onclick="event.stopPropagation()">
+                    <div class="flex items-start gap-2 min-w-0 flex-1">
                         <input type="checkbox" 
                             ${item.done ? 'checked' : ''} 
                             onchange="toggleTask('${type}', '${key}', ${item.id})"
-                            class="mt-0.5 shrink-0 w-2.5 h-2.5 appearance-none border border-gray-500 rounded bg-transparent checked:bg-orange-500 checked:border-orange-500 cursor-pointer">
-                        <span class="text-[10px] leading-tight text-gray-300 break-words whitespace-normal ${item.done ? 'line-through text-gray-600' : ''}">
+                            class="mt-0.5 shrink-0 w-3 h-3 appearance-none border border-gray-500 rounded bg-transparent checked:bg-orange-500 checked:border-orange-500 cursor-pointer">
+                        <span class="text-xs leading-snug text-gray-300 break-words whitespace-normal ${item.done ? 'line-through text-gray-600' : ''}">
                             ${item.text}
                         </span>
                     </div>
                     <button onclick="deleteTask('${type}', '${key}', ${item.id})" 
-                            class="delete-btn opacity-0 transition-opacity text-gray-500 hover:text-red-500 text-[10px] shrink-0 leading-none px-1">×</button>
+                            class="delete-btn opacity-0 transition-opacity text-gray-500 hover:text-red-500 text-xs shrink-0 leading-none px-1">×</button>
                 </div>
             `;
         }
@@ -209,7 +207,6 @@
 
         function renderYears() {
             const container = document.getElementById('years-container');
-            // Use dynamic year list from appData
             const years = appData.yearList;
             
             container.innerHTML = years.map(y => {
@@ -218,10 +215,10 @@
                 
                 return `
                 <div onclick="selectYear(${y})" 
-                     class="flex-1 glass-panel rounded-lg p-2 flex flex-col min-w-[120px] cursor-pointer hover:bg-white/5 ${isSelected ? 'selected-box' : ''}">
-                    <div class="flex justify-between items-center text-gray-400 font-bold mb-1 border-b border-gray-700 pb-0.5 shrink-0">
-                        <span class="text-xs ${isSelected ? 'text-orange-500' : ''}">${y}</span>
-                        <button onclick="event.stopPropagation(); addItem('year', '${y}')" class="text-gray-600 hover:text-white text-[10px]">+</button>
+                     class="flex-1 glass-panel rounded-lg p-2.5 flex flex-col min-w-[130px] cursor-pointer hover:bg-white/5 ${isSelected ? 'selected-box' : ''}">
+                    <div class="flex justify-between items-center text-gray-400 font-bold mb-1.5 border-b border-gray-700 pb-1 shrink-0">
+                        <span class="text-sm ${isSelected ? 'text-orange-500' : ''}">${y}</span>
+                        <button onclick="event.stopPropagation(); addItem('year', '${y}')" class="text-gray-500 hover:text-white text-xs">+</button>
                     </div>
                     <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                         ${tasks.map(t => createItemHTML(t, 'year', y)).join('')}
@@ -240,10 +237,10 @@
 
                 return `
                 <div onclick="selectMonth(${idx})" 
-                     class="glass-panel rounded-lg p-1.5 flex flex-col min-w-0 h-full cursor-pointer hover:bg-white/5 overflow-hidden ${isSelected ? 'selected-box' : ''}">
-                    <div class="flex justify-between items-center text-gray-400 font-bold mb-1 border-b border-gray-700 pb-0.5 shrink-0">
-                        <span class="text-[10px] uppercase truncate ${isSelected ? 'text-orange-500' : ''}">${name}</span>
-                        <button onclick="event.stopPropagation(); addItem('month', '${dataKey}')" class="text-gray-600 hover:text-white text-[10px] leading-none">+</button>
+                     class="glass-panel rounded-lg p-2 flex flex-col min-w-0 h-full cursor-pointer hover:bg-white/5 overflow-hidden ${isSelected ? 'selected-box' : ''}">
+                    <div class="flex justify-between items-center text-gray-400 font-bold mb-1.5 border-b border-gray-700 pb-1 shrink-0">
+                        <span class="text-xs uppercase truncate ${isSelected ? 'text-orange-500' : ''}">${name}</span>
+                        <button onclick="event.stopPropagation(); addItem('month', '${dataKey}')" class="text-gray-500 hover:text-white text-xs leading-none">+</button>
                     </div>
                     <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                          ${tasks.map(t => createItemHTML(t, 'month', dataKey)).join('')}
@@ -252,21 +249,19 @@
             }).join('');
         }
 
-        // --- NEW: Render Weeks ---
         function renderWeeks() {
             const container = document.getElementById('weeks-container');
             const weeks = [1, 2, 3, 4, 5];
             
             container.innerHTML = weeks.map(w => {
-                // Key format: Year-Month-WeekNumber (e.g., 2025-0-W1)
                 const dataKey = `${currentState.selectedYear}-${currentState.selectedMonth}-W${w}`;
                 const tasks = appData.weeks[dataKey] || [];
                 
                 return `
                 <div class="glass-panel rounded-lg p-2 flex flex-col min-w-0 h-full hover:bg-white/5">
-                    <div class="flex justify-between items-center text-gray-400 font-bold mb-1 border-b border-gray-700 pb-0.5 shrink-0">
-                        <span class="text-[10px] uppercase">Week ${w}</span>
-                        <button onclick="addItem('week', '${dataKey}')" class="text-gray-600 hover:text-white text-[10px] leading-none">+</button>
+                    <div class="flex justify-between items-center text-gray-400 font-bold mb-1.5 border-b border-gray-700 pb-1 shrink-0">
+                        <span class="text-xs uppercase">Week ${w}</span>
+                        <button onclick="addItem('week', '${dataKey}')" class="text-gray-500 hover:text-white text-xs leading-none">+</button>
                     </div>
                     <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                          ${tasks.map(t => createItemHTML(t, 'week', dataKey)).join('')}
@@ -302,8 +297,8 @@
                 html += `
                     <div class="border-r border-b border-gray-700 p-1 flex flex-col hover:bg-white/5 transition relative group/cell min-h-0 overflow-hidden">
                         <div class="flex justify-between items-start shrink-0 mb-1">
-                            <span class="${isRealToday ? 'text-orange-500 font-bold' : 'text-gray-500'} text-[10px]">${day}</span>
-                            <button onclick="addItem('day', '${dataKey}')" class="text-gray-600 hover:text-white text-[10px] opacity-0 group-hover/cell:opacity-100">+</button>
+                            <span class="${isRealToday ? 'text-orange-500 font-bold' : 'text-gray-500'} text-xs">${day}</span>
+                            <button onclick="addItem('day', '${dataKey}')" class="text-gray-500 hover:text-white text-xs opacity-0 group-hover/cell:opacity-100">+</button>
                         </div>
                         <div class="flex-1 overflow-y-auto pr-0.5 custom-scrollbar">
                             ${tasks.map(t => createItemHTML(t, 'day', dataKey)).join('')}
