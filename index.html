@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Goal Tracker v1.1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        
+        .glass-panel {
+            background-color: rgba(30, 30, 30, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s ease; 
+        }
+        
+        .selected-box {
+            border: 1px solid #f97316 !important;
+            background-color: rgba(249, 115, 22, 0.15);
+        }
+
+        .group:hover .delete-btn { opacity: 1; }
+        
+        /* Action buttons for years */
+        .year-action-btn {
+            @apply w-8 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded border border-gray-600 transition shadow-lg cursor-pointer;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-300 font-sans min-h-screen flex flex-col overflow-y-auto">
+
+    <div class="fixed inset-0 z-[-1] opacity-20 bg-[url('https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?q=80&w=2074&auto=format&fit=crop')] bg-cover bg-center"></div>
+
+    <div class="flex justify-end items-center px-4 py-3 gap-2 shrink-0 sticky top-0 z-50">
+        <button onclick="downloadData()" class="bg-gray-800 hover:bg-gray-700 text-white text-xs px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1 shadow-lg transition">
+            <span>⬇</span> Save
+        </button>
+        <button onclick="document.getElementById('file-input').click()" class="bg-gray-800 hover:bg-gray-700 text-white text-xs px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1 shadow-lg transition">
+            <span>⬆</span> Load
+        </button>
+        <input type="file" id="file-input" class="hidden" accept=".json" onchange="loadData(this)">
+    </div>
+
+    <div class="flex-1 flex flex-col px-3 pb-3 gap-3">
+
+        <div class="w-full glass-panel rounded-lg p-2 flex flex-col h-full shrink-0">
+            <div class="flex justify-between items-center border-b border-gray-700 pb-1 mb-1 shrink-0">
+                <h2 class="text-white font-bold text-xs uppercase tracking-wide">Life Goals</h2>
+                <button onclick="addItem('life')" class="text-[10px] bg-gray-700 hover:bg-gray-600 text-white px-2 py-0.5 rounded transition shadow">+ Add Goal</button>
+            </div>
+            <div id="life-goals-container" class="flex-1 overflow-y-auto pr-1 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 content-start"></div>
+        </div>
+
+        <br>
+
+        <div class="flex gap-2 h-full shrink-0">
+            <button onclick="removeOldestYear()" class="year-action-btn text-lg font-bold hover:bg-red-900/50 hover:border-red-500 hover:text-red-200" title="Remove Oldest Year">−</button>
+            
+            <div id="years-container" class="flex-1 flex gap-2 overflow-x-auto pb-1"></div>
+            
+            <button onclick="addNewYear()" class="year-action-btn text-lg font-bold hover:bg-green-900/50 hover:border-green-500 hover:text-green-200" title="Add Next Year">+</button>
+        </div>
+
+        <br>
+
+        <div id="months-container" class="grid grid-cols-6 gap-2 h-full shrink-0"></div>
+
+        <br>
+
+        <div id="weeks-container" class="grid grid-cols-5 gap-2 h-full shrink-0"></div>
+
+        <br>
+
+        <div class="glass-panel rounded-lg p-0 overflow-hidden flex flex-col ">
+            <div class="grid grid-cols-7 border-b border-gray-700 bg-black/20 text-[10px] font-bold text-gray-400 py-1 text-center shrink-0">
+                <div>MO</div><div>TU</div><div>WE</div><div>TH</div><div>FR</div><div>SA</div><div>SU</div>
+            </div>
+            <div id="calendar-header" class="text-xs text-center py-0.5 text-orange-500 font-bold bg-black/10 shrink-0"></div>
+            <div id="calendar-grid" class="grid grid-cols-7 grid-rows-6 h-full overflow-hidden"></div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. STATE & NAVIGATION ---
+        const today = new Date();
+        let currentState = {
+            selectedYear: today.getFullYear(),
+            selectedMonth: today.getMonth()
+        };
+
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+        // Default Data Structure
+        const defaultData = {
+            life: [],
+            years: {},
+            months: {},
+            weeks: {}, // New weeks storage
+            days: {},
+            yearList: [2026, 2027, 2028, 2029, 2030] // Stores which years are visible
+        };
+
+        // Load Data
+        let appData = JSON.parse(localStorage.getItem('goalApp_v11')) || defaultData;
+
+        // Ensure new data structures exist if loading from old version
+        if (!appData.weeks) appData.weeks = {};
+        if (!appData.yearList) appData.yearList = [2026, 2027, 2028, 2029, 2030];
+
+        function saveData() {
+            localStorage.setItem('goalApp_v11', JSON.stringify(appData));
+            renderAll();
+        }
+
+        // --- 3. EXPORT / IMPORT LOGIC ---
+        function downloadData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "my_goals.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function loadData(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsedData = JSON.parse(e.target.result);
+                    if (parsedData.life && parsedData.years) {
+                        appData = parsedData;
+                        // Patch for older files
+                        if (!appData.weeks) appData.weeks = {};
+                        if (!appData.yearList) appData.yearList = [2026, 2027, 2028, 2029, 2030];
+                        
+                        saveData();
+                        alert("Data loaded successfully!");
+                    } else { alert("Invalid file format."); }
+                } catch (error) { alert("Error reading file."); }
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+
+        // --- 4. SELECTION LOGIC ---
+        function selectYear(year) {
+            currentState.selectedYear = parseInt(year);
+            renderAll();
+        }
+        function selectMonth(monthIndex) {
+            currentState.selectedMonth = parseInt(monthIndex);
+            renderAll(); 
+        }
+
+        // --- 5. DATA MANIPULATION FOR YEARS ---
+        function addNewYear() {
+            const maxYear = Math.max(...appData.yearList);
+            appData.yearList.push(maxYear + 1);
+            saveData();
+        }
+
+        function removeOldestYear() {
+            if (appData.yearList.length <= 1) return;
+            if(!confirm("Remove oldest year from view?")) return;
+            appData.yearList.shift(); // Removes first element
+            saveData();
+        }
+
+        // --- 6. RENDERING ---
+        function renderAll() {
+            renderLifeGoals();
+            renderYears();
+            renderMonths();
+            renderWeeks(); // New
+            renderCalendar();
+        }
+
+        function createItemHTML(item, type, key) {
+            return `
+                <div class="flex items-start gap-1.5 group justify-between w-full mb-1" onclick="event.stopPropagation()">
+                    <div class="flex items-start gap-1.5 min-w-0 flex-1">
+                        <input type="checkbox" 
+                            ${item.done ? 'checked' : ''} 
+                            onchange="toggleTask('${type}', '${key}', ${item.id})"
+                            class="mt-0.5 shrink-0 w-2.5 h-2.5 appearance-none border border-gray-500 rounded bg-transparent checked:bg-orange-500 checked:border-orange-500 cursor-pointer">
+                        <span class="text-[10px] leading-tight text-gray-300 break-words whitespace-normal ${item.done ? 'line-through text-gray-600' : ''}">
+                            ${item.text}
+                        </span>
+                    </div>
+                    <button onclick="deleteTask('${type}', '${key}', ${item.id})" 
+                            class="delete-btn opacity-0 transition-opacity text-gray-500 hover:text-red-500 text-[10px] shrink-0 leading-none px-1">×</button>
+                </div>
+            `;
+        }
+
+        function renderLifeGoals() {
+            document.getElementById('life-goals-container').innerHTML = 
+                appData.life.map(t => createItemHTML(t, 'life', null)).join('');
+        }
+
+        function renderYears() {
+            const container = document.getElementById('years-container');
+            // Use dynamic year list from appData
+            const years = appData.yearList;
+            
+            container.innerHTML = years.map(y => {
+                const isSelected = currentState.selectedYear === y;
+                const tasks = appData.years[y] || [];
+                
+                return `
+                <div onclick="selectYear(${y})" 
+                     class="flex-1 glass-panel rounded-lg p-2 flex flex-col min-w-[120px] cursor-pointer hover:bg-white/5 ${isSelected ? 'selected-box' : ''}">
+                    <div class="flex justify-between items-center text-gray-400 font-bold mb-1 border-b border-gray-700 pb-0.5 shrink-0">
+                        <span class="text-xs ${isSelected ? 'text-orange-500' : ''}">${y}</span>
+                        <button onclick="event.stopPropagation(); addItem('year', '${y}')" class="text-gray-600 hover:text-white text-[10px]">+</button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                        ${tasks.map(t => createItemHTML(t, 'year', y)).join('')}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderMonths() {
+            const container = document.getElementById('months-container');
+            
+            container.innerHTML = monthNames.map((name, idx) => {
+                const isSelected = currentState.selectedMonth === idx;
+                const dataKey = `${currentState.selectedYear}-${idx}`; 
+                const tasks = appData.months[dataKey] || [];
+
+                return `
+                <div onclick="selectMonth(${idx})" 
+                     class="glass-panel rounded-lg p-1.5 flex flex-col min-w-0 h-full cursor-pointer hover:bg-white/5 overflow-hidden ${isSelected ? 'selected-box' : ''}">
+                    <div class="flex justify-between items-center text-gray-400 font-bold mb-1 border-b border-gray-700 pb-0.5 shrink-0">
+                        <span class="text-[10px] uppercase truncate ${isSelected ? 'text-orange-500' : ''}">${name}</span>
+                        <button onclick="event.stopPropagation(); addItem('month', '${dataKey}')" class="text-gray-600 hover:text-white text-[10px] leading-none">+</button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                         ${tasks.map(t => createItemHTML(t, 'month', dataKey)).join('')}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // --- NEW: Render Weeks ---
+        function renderWeeks() {
+            const container = document.getElementById('weeks-container');
+            const weeks = [1, 2, 3, 4, 5];
+            
+            container.innerHTML = weeks.map(w => {
+                // Key format: Year-Month-WeekNumber (e.g., 2025-0-W1)
+                const dataKey = `${currentState.selectedYear}-${currentState.selectedMonth}-W${w}`;
+                const tasks = appData.weeks[dataKey] || [];
+                
+                return `
+                <div class="glass-panel rounded-lg p-2 flex flex-col min-w-0 h-full hover:bg-white/5">
+                    <div class="flex justify-between items-center text-gray-400 font-bold mb-1 border-b border-gray-700 pb-0.5 shrink-0">
+                        <span class="text-[10px] uppercase">Week ${w}</span>
+                        <button onclick="addItem('week', '${dataKey}')" class="text-gray-600 hover:text-white text-[10px] leading-none">+</button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                         ${tasks.map(t => createItemHTML(t, 'week', dataKey)).join('')}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderCalendar() {
+            const container = document.getElementById('calendar-grid');
+            const header = document.getElementById('calendar-header');
+            
+            const year = currentState.selectedYear;
+            const month = currentState.selectedMonth;
+            
+            header.innerText = `${monthNames[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1).getDay(); 
+            const startOffset = firstDay === 0 ? 6 : firstDay - 1; 
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let html = '';
+
+            for (let i = 0; i < startOffset; i++) {
+                html += `<div class="border-r border-b border-gray-800 bg-black/40"></div>`;
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dataKey = `${year}-${month}-${day}`;
+                const tasks = appData.days[dataKey] || [];
+                const isRealToday = (day === today.getDate() && month === today.getMonth() && year === today.getFullYear());
+
+                html += `
+                    <div class="border-r border-b border-gray-700 p-1 flex flex-col hover:bg-white/5 transition relative group/cell min-h-0 overflow-hidden">
+                        <div class="flex justify-between items-start shrink-0 mb-1">
+                            <span class="${isRealToday ? 'text-orange-500 font-bold' : 'text-gray-500'} text-[10px]">${day}</span>
+                            <button onclick="addItem('day', '${dataKey}')" class="text-gray-600 hover:text-white text-[10px] opacity-0 group-hover/cell:opacity-100">+</button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto pr-0.5 custom-scrollbar">
+                            ${tasks.map(t => createItemHTML(t, 'day', dataKey)).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        // --- 7. CORE LOGIC ---
+        function addItem(type, key) {
+            const text = prompt("Enter task:");
+            if (!text) return;
+            const newItem = { id: Date.now(), text: text, done: false };
+
+            if (type === 'life') {
+                appData.life.push(newItem);
+            } else if (type === 'year') {
+                if (!appData.years[key]) appData.years[key] = [];
+                appData.years[key].push(newItem);
+            } else if (type === 'month') {
+                if (!appData.months[key]) appData.months[key] = [];
+                appData.months[key].push(newItem);
+            } else if (type === 'week') {
+                if (!appData.weeks[key]) appData.weeks[key] = [];
+                appData.weeks[key].push(newItem);
+            } else if (type === 'day') {
+                if (!appData.days[key]) appData.days[key] = [];
+                appData.days[key].push(newItem);
+            }
+            saveData();
+        }
+
+        function deleteTask(type, key, id) {
+            if(!confirm("Delete?")) return;
+            if (type === 'life') {
+                appData.life = appData.life.filter(i => i.id !== id);
+            } else if (type === 'year') {
+                appData.years[key] = appData.years[key].filter(i => i.id !== id);
+            } else if (type === 'month') {
+                appData.months[key] = appData.months[key].filter(i => i.id !== id);
+            } else if (type === 'week') {
+                appData.weeks[key] = appData.weeks[key].filter(i => i.id !== id);
+            } else if (type === 'day') {
+                appData.days[key] = appData.days[key].filter(i => i.id !== id);
+            }
+            saveData();
+        }
+
+        function toggleTask(type, key, id) {
+            let list;
+            if (type === 'life') list = appData.life;
+            else if (type === 'year') list = appData.years[key];
+            else if (type === 'month') list = appData.months[key];
+            else if (type === 'week') list = appData.weeks[key];
+            else if (type === 'day') list = appData.days[key];
+
+            const item = list.find(i => i.id === id);
+            if (item) item.done = !item.done;
+            saveData();
+        }
+
+        renderAll();
+    </script>
+</body>
+</html>
