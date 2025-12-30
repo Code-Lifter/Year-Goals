@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deep Goal Tracker v1.2</title>
+    <title>Deep Goal Tracker v1.6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom Scrollbar */
@@ -24,7 +24,23 @@
             background-color: rgba(249, 115, 22, 0.15);
         }
 
-        .group:hover .delete-btn { opacity: 1; }
+        .tag-pill {
+            @apply px-2 py-0.5 rounded text-[10px] font-mono cursor-pointer border border-transparent transition-all;
+        }
+        .tag-pill.active {
+            @apply bg-orange-600 text-white border-orange-400;
+        }
+        .tag-pill.inactive {
+            @apply bg-gray-800 text-gray-400 border-gray-600 hover:border-gray-400 hover:text-white;
+        }
+
+        /* Hashtag styling within text */
+        .hashtag-highlight {
+            color: #f97316;
+            font-weight: bold;
+        }
+
+        .group:hover .task-controls { opacity: 1; pointer-events: auto; }
         
         .year-action-btn {
             @apply w-8 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded border border-gray-600 transition shadow-lg cursor-pointer;
@@ -35,22 +51,24 @@
 
     <div class="fixed inset-0 z-[-1] opacity-20 bg-[url('https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?q=80&w=2074&auto=format&fit=crop')] bg-cover bg-center"></div>
 
-<div class="flex justify-end items-center px-4 py-3 gap-2 shrink-0 top-0 z-50">
+    <div class="flex flex-col gap-2 px-3 py-3 shrink-0 top-0 z-50">
         
-        <button onclick="initFileSave()" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1 shadow-lg transition">
-            <span>💾</span> Connect to Disk
-        </button>
+        <div class="flex justify-end items-center gap-2">
+            <button onclick="initFileSave()" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1 shadow-lg transition">
+                <span>💾</span> Connect
+            </button>
+            <button onclick="downloadData()" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1 shadow-lg transition">
+                <span>⬇</span> Save
+            </button>
+            <button onclick="document.getElementById('file-input').click()" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1 shadow-lg transition">
+                <span>⬆</span> Load
+            </button>
+            <input type="file" id="file-input" class="hidden" accept=".json" onchange="loadData(this)">
+        </div>
 
-        <button onclick="downloadData()" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1 shadow-lg transition">
-            <span>⬇</span> Save
-        </button>
+        <div id="tag-bar" class="flex gap-2 overflow-x-auto pb-1 custom-scrollbar min-h-[28px]">
+            </div>
 
-        <button onclick="document.getElementById('file-input').click()" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1 shadow-lg transition">
-            <span>⬆</span> Load
-        </button>
-
-        <input type="file" id="file-input" class="hidden" accept=".json" onchange="loadData(this)">
-        
     </div>
 
     <div class="flex-1 flex flex-col px-3 pb-3 gap-3">
@@ -60,7 +78,7 @@
                 <h2 class="text-white font-bold text-sm uppercase tracking-wide">Life Goals</h2>
                 <button onclick="addItem('life')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded transition shadow">+ Add Goal</button>
             </div>
-            <div id="life-goals-container" class="flex-1 overflow-y-auto pr-1 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 content-start"></div>
+            <div id="life-goals-container" class="flex-1 overflow-y-auto pr-1 flex flex-col gap-1"></div>
         </div>
 
         <br>
@@ -72,7 +90,7 @@
         </div>
 
         <br>
-
+        
         <div id="months-container" class="grid grid-cols-6 gap-2 h-full shrink-0"></div>
 
         <br>
@@ -81,7 +99,7 @@
 
         <br>
 
-<div class="glass-panel rounded-lg p-0 overflow-hidden flex flex-col h-full">
+        <div class="glass-panel rounded-lg p-0 overflow-hidden flex flex-col h-full">
             <div class="grid grid-cols-[2rem_repeat(7,1fr)] border-b border-gray-700 bg-black/20 text-xs font-bold text-gray-400 py-1.5 text-center shrink-0">
                 <div class="text-gray-600">#</div> <div>MO</div><div>TU</div><div>WE</div><div>TH</div><div>FR</div><div>SA</div><div>SU</div>
             </div>
@@ -98,12 +116,12 @@
         const today = new Date();
         let currentState = {
             selectedYear: today.getFullYear(),
-            selectedMonth: today.getMonth()
+            selectedMonth: today.getMonth(),
+            activeTag: null // NEW: Filter state
         };
 
         const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-        // Default Data Structure
         const defaultData = {
             life: [],
             years: {},
@@ -113,33 +131,22 @@
             yearList: [2026, 2027, 2028, 2029, 2030] 
         };
 
-        // Load Data from LocalStorage (Browser Memory)
         let appData = JSON.parse(localStorage.getItem('goalApp_v11')) || defaultData;
 
-        // Ensure new data structures exist
         if (!appData.weeks) appData.weeks = {};
         if (!appData.yearList) appData.yearList = [2026, 2027, 2028, 2029, 2030];
 
-        // --- NEW: FILE SYSTEM HANDLES ---
+        // --- FILE SYSTEM HANDLES ---
         let fileHandle = null;
 
-        // Core Save Function
         async function saveData() {
-            // 1. Save to LocalStorage (Always acts as a backup)
             localStorage.setItem('goalApp_v11', JSON.stringify(appData));
-            
-            // 2. Render updates
             renderAll();
-
-            // 3. Auto-save to Disk if connected
             if (fileHandle) {
                 await writeToFile();
             }
         }
 
-        // --- 3. EXPORT / IMPORT / FILE SYSTEM LOGIC ---
-        
-        // OLD METHOD (Fallback)
         function downloadData() {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData));
             const downloadAnchorNode = document.createElement('a');
@@ -150,10 +157,8 @@
             downloadAnchorNode.remove();
         }
 
-        // NEW METHOD: Initialize the connection
         async function initFileSave() {
             try {
-                // Open file picker requesting write access
                 const options = {
                     suggestedName: 'my_goals.json',
                     types: [{
@@ -162,35 +167,22 @@
                     }],
                 };
                 fileHandle = await window.showSaveFilePicker(options);
-                
-                // Change the button to show it's connected
                 const btn = document.querySelector('button[onclick="initFileSave()"]');
                 if(btn) {
                     btn.innerHTML = "<span>✓</span> Auto-Saving";
                     btn.classList.replace("bg-gray-800", "bg-green-700");
-                    btn.classList.replace("hover:bg-gray-700", "hover:bg-green-600");
                 }
-
-                // Immediate save to establish content
                 await writeToFile();
-            } catch (err) {
-                console.error("User cancelled or API not supported", err);
-            }
+            } catch (err) { console.error(err); }
         }
 
-        // Write to the connected file
         async function writeToFile() {
             if (!fileHandle) return;
             try {
                 const writable = await fileHandle.createWritable();
-                await writable.write(JSON.stringify(appData, null, 2)); // Pretty print
+                await writable.write(JSON.stringify(appData, null, 2));
                 await writable.close();
-                console.log("Auto-saved to disk.");
-            } catch (err) {
-                console.error("Failed to auto-save", err);
-                alert("Lost connection to file. Please reconnect.");
-                fileHandle = null;
-            }
+            } catch (err) { console.error(err); }
         }
 
         async function loadData(input) {
@@ -202,20 +194,16 @@
                     const parsedData = JSON.parse(e.target.result);
                     if (parsedData.life && parsedData.years) {
                         appData = parsedData;
-                        // Patch for older files
                         if (!appData.weeks) appData.weeks = {};
                         if (!appData.yearList) appData.yearList = [2026, 2027, 2028, 2029, 2030];
-                        
                         saveData();
-                        alert("Data loaded successfully!");
-                    } else { alert("Invalid file format."); }
+                    } 
                 } catch (error) { alert("Error reading file."); }
             };
             reader.readAsText(file);
-            input.value = '';
         }
 
-        // --- 4. SELECTION LOGIC ---
+        // --- SELECTION & FILTER LOGIC ---
         function selectYear(year) {
             currentState.selectedYear = parseInt(year);
             renderAll();
@@ -224,8 +212,42 @@
             currentState.selectedMonth = parseInt(monthIndex);
             renderAll(); 
         }
+        
+        // NEW: Tag Filter Logic
+        function toggleTag(tag) {
+            if (currentState.activeTag === tag) {
+                currentState.activeTag = null; // Unselect
+            } else {
+                currentState.activeTag = tag; // Select
+            }
+            renderAll();
+        }
 
-        // --- 5. DATA MANIPULATION FOR YEARS ---
+        // --- TAG EXTRACTION ---
+        function getAllTags() {
+            const tags = new Set();
+            const regex = /#[\w-]+/g;
+
+            // Helper to scan a list
+            const scan = (list) => {
+                if(!list) return;
+                list.forEach(item => {
+                    const matches = item.text.match(regex);
+                    if (matches) matches.forEach(t => tags.add(t));
+                });
+            };
+
+            // Scan all data
+            scan(appData.life);
+            Object.values(appData.years).forEach(scan);
+            Object.values(appData.months).forEach(scan);
+            Object.values(appData.weeks).forEach(scan);
+            Object.values(appData.days).forEach(scan);
+
+            return Array.from(tags).sort();
+        }
+
+        // --- DATA MANIPULATION ---
         function addNewYear() {
             const maxYear = Math.max(...appData.yearList);
             appData.yearList.push(maxYear + 1);
@@ -234,13 +256,14 @@
 
         function removeOldestYear() {
             if (appData.yearList.length <= 1) return;
-            if(!confirm("Remove oldest year from view?")) return;
+            if(!confirm("Remove oldest year?")) return;
             appData.yearList.shift(); 
             saveData();
         }
 
-        // --- 6. RENDERING ---
+        // --- RENDERING ---
         function renderAll() {
+            renderTags();
             renderLifeGoals();
             renderYears();
             renderMonths();
@@ -248,20 +271,65 @@
             renderCalendar();
         }
 
+        function renderTags() {
+            const tags = getAllTags();
+            const container = document.getElementById('tag-bar');
+            
+            if (tags.length === 0) {
+                container.innerHTML = '<span class="text-xs text-gray-600 italic py-1">Type #tag to filter...</span>';
+                return;
+            }
+
+            let html = '';
+            // "Show All" button? Only if a tag is active.
+            if (currentState.activeTag) {
+                html += `<button onclick="toggleTag('${currentState.activeTag}')" class="tag-pill bg-red-900 text-red-200 border-red-700">✖ Clear Filter</button>`;
+            }
+
+            html += tags.map(tag => {
+                const isActive = currentState.activeTag === tag;
+                return `<button onclick="toggleTag('${tag}')" class="tag-pill ${isActive ? 'active' : 'inactive'}">${tag}</button>`;
+            }).join('');
+            
+            container.innerHTML = html;
+        }
+
         function createItemHTML(item, type, key) {
+            // FILTER CHECK
+            if (currentState.activeTag) {
+                if (!item.text.includes(currentState.activeTag)) {
+                    return ''; // Hide item if it doesn't have the tag
+                }
+            }
+
+            const indentLevel = item.indent || 0;
+            const paddingLeft = indentLevel * 16; 
+
+            // Highlight regex
+            const textWithHighlights = item.text.replace(/(#[\w-]+)/g, '<span class="hashtag-highlight">$1</span>');
+
             return `
-                <div class="flex items-start gap-2 group justify-between w-full mb-1.5" onclick="event.stopPropagation()">
+                <div class="flex items-start gap-2 group justify-between w-full mb-1.5 relative" 
+                     style="padding-left: ${paddingLeft}px"
+                     onclick="event.stopPropagation()">
+                    
                     <div class="flex items-start gap-2 min-w-0 flex-1">
                         <input type="checkbox" 
                             ${item.done ? 'checked' : ''} 
                             onchange="toggleTask('${type}', '${key}', ${item.id})"
                             class="mt-0.5 shrink-0 w-3 h-3 appearance-none border border-gray-500 rounded bg-transparent checked:bg-orange-500 checked:border-orange-500 cursor-pointer">
                         <span class="text-xs leading-snug text-gray-300 break-words whitespace-normal ${item.done ? 'line-through text-gray-600' : ''}">
-                            ${item.text}
+                            ${textWithHighlights}
                         </span>
                     </div>
-                    <button onclick="deleteTask('${type}', '${key}', ${item.id})" 
-                            class="delete-btn opacity-0 transition-opacity text-gray-500 hover:text-red-500 text-xs shrink-0 leading-none px-1">×</button>
+
+                    <div class="task-controls flex gap-0.5 opacity-0 transition-opacity shrink-0 bg-gray-800 border border-gray-600 rounded shadow-xl z-10 absolute right-0 top-0 pointer-events-none">
+                        <button onclick="moveItem('${type}', '${key}', ${item.id}, -1)" class="text-gray-400 hover:text-white hover:bg-gray-700 text-[10px] px-1.5 py-0.5 font-mono border-r border-gray-600">↑</button>
+                        <button onclick="moveItem('${type}', '${key}', ${item.id}, 1)" class="text-gray-400 hover:text-white hover:bg-gray-700 text-[10px] px-1.5 py-0.5 font-mono border-r border-gray-600">↓</button>
+                        <button onclick="changeIndent('${type}', '${key}', ${item.id}, -1)" class="text-gray-400 hover:text-white hover:bg-gray-700 text-[10px] px-1.5 py-0.5 font-mono border-r border-gray-600">&lt;</button>
+                        <button onclick="changeIndent('${type}', '${key}', ${item.id}, 1)" class="text-gray-400 hover:text-white hover:bg-gray-700 text-[10px] px-1.5 py-0.5 font-mono border-r border-gray-600">&gt;</button>
+                        <button onclick="deleteTask('${type}', '${key}', ${item.id})" class="text-gray-400 hover:text-red-500 hover:bg-gray-700 text-xs px-2 py-0.5 font-bold">×</button>
+                    </div>
                 </div>
             `;
         }
@@ -278,6 +346,8 @@
             container.innerHTML = years.map(y => {
                 const isSelected = currentState.selectedYear === y;
                 const tasks = appData.years[y] || [];
+                // If filtering, we still show the year box, but maybe it ends up empty.
+                const content = tasks.map(t => createItemHTML(t, 'year', y)).join('');
                 
                 return `
                 <div onclick="selectYear(${y})" 
@@ -287,7 +357,7 @@
                         <button onclick="event.stopPropagation(); addItem('year', '${y}')" class="text-gray-500 hover:text-white text-xs">+</button>
                     </div>
                     <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                        ${tasks.map(t => createItemHTML(t, 'year', y)).join('')}
+                        ${content}
                     </div>
                 </div>`;
             }).join('');
@@ -295,11 +365,11 @@
 
         function renderMonths() {
             const container = document.getElementById('months-container');
-            
             container.innerHTML = monthNames.map((name, idx) => {
                 const isSelected = currentState.selectedMonth === idx;
                 const dataKey = `${currentState.selectedYear}-${idx}`; 
                 const tasks = appData.months[dataKey] || [];
+                const content = tasks.map(t => createItemHTML(t, 'month', dataKey)).join('');
 
                 return `
                 <div onclick="selectMonth(${idx})" 
@@ -309,7 +379,7 @@
                         <button onclick="event.stopPropagation(); addItem('month', '${dataKey}')" class="text-gray-500 hover:text-white text-xs leading-none">+</button>
                     </div>
                     <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                         ${tasks.map(t => createItemHTML(t, 'month', dataKey)).join('')}
+                         ${content}
                     </div>
                 </div>`;
             }).join('');
@@ -318,10 +388,10 @@
         function renderWeeks() {
             const container = document.getElementById('weeks-container');
             const weeks = [1, 2, 3, 4, 5];
-            
             container.innerHTML = weeks.map(w => {
                 const dataKey = `${currentState.selectedYear}-${currentState.selectedMonth}-W${w}`;
                 const tasks = appData.weeks[dataKey] || [];
+                const content = tasks.map(t => createItemHTML(t, 'week', dataKey)).join('');
                 
                 return `
                 <div class="glass-panel rounded-lg p-2 flex flex-col min-w-0 h-full hover:bg-white/5">
@@ -330,13 +400,12 @@
                         <button onclick="addItem('week', '${dataKey}')" class="text-gray-500 hover:text-white text-xs leading-none">+</button>
                     </div>
                     <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                         ${tasks.map(t => createItemHTML(t, 'week', dataKey)).join('')}
+                         ${content}
                     </div>
                 </div>`;
             }).join('');
         }
 
-// --- HELPER: ISO Week Number ---
         function getWeekNumber(d) {
             d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
             d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
@@ -344,52 +413,36 @@
             return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
         }
 
-        // --- UPDATED RENDER CALENDAR ---
         function renderCalendar() {
             const container = document.getElementById('calendar-grid');
             const header = document.getElementById('calendar-header');
             
             const year = currentState.selectedYear;
             const month = currentState.selectedMonth;
-            
             header.innerText = `${monthNames[month]} ${year}`;
 
             const firstDay = new Date(year, month, 1).getDay(); 
-            const startOffset = firstDay === 0 ? 6 : firstDay - 1; // Mon=0, Sun=6
+            const startOffset = firstDay === 0 ? 6 : firstDay - 1; 
             const daysInMonth = new Date(year, month + 1, 0).getDate();
 
             let html = '';
             let currentDay = 1;
             let isMonthComplete = false;
 
-            // We loop row by row (week by week) until we finish the month
             while (!isMonthComplete) {
-                
-                // 1. Calculate Week Number for the first valid day of this row
-                // If it's the very first week, we use the 1st of the month.
-                // Otherwise, it's the current tracker day.
                 let weekDate = new Date(year, month, currentDay);
                 let weekNum = getWeekNumber(weekDate);
+                html += `<div class="border-r border-b border-gray-800 bg-black/30 flex items-center justify-center text-[10px] text-gray-600 font-mono select-none">W${weekNum}</div>`;
 
-                // Add Week Number Cell
-                html += `
-                    <div class="border-r border-b border-gray-800 bg-black/30 flex items-center justify-center text-[10px] text-gray-600 font-mono select-none">
-                        W${weekNum}
-                    </div>
-                `;
-
-                // 2. Loop through 7 days of the week (Mon-Sun)
                 for (let i = 0; i < 7; i++) {
-                    
-                    // A. Empty Spacer at Start of Month
                     if (currentDay === 1 && i < startOffset) {
                         html += `<div class="border-r border-b border-gray-800 bg-black/40"></div>`;
                     }
-                    // B. Valid Day
                     else if (currentDay <= daysInMonth) {
                         const dataKey = `${year}-${month}-${currentDay}`;
                         const tasks = appData.days[dataKey] || [];
                         const isRealToday = (currentDay === today.getDate() && month === today.getMonth() && year === today.getFullYear());
+                        const content = tasks.map(t => createItemHTML(t, 'day', dataKey)).join('');
 
                         html += `
                             <div class="border-r border-b border-gray-700 p-1 flex flex-col hover:bg-white/5 transition relative group/cell min-h-[80px] overflow-hidden">
@@ -398,68 +451,29 @@
                                     <button onclick="addItem('day', '${dataKey}')" class="text-gray-500 hover:text-white text-xs opacity-0 group-hover/cell:opacity-100">+</button>
                                 </div>
                                 <div class="flex-1 overflow-y-auto pr-0.5 custom-scrollbar">
-                                    ${tasks.map(t => createItemHTML(t, 'day', dataKey)).join('')}
+                                    ${content}
                                 </div>
                             </div>
                         `;
                         currentDay++;
                     }
-                    // C. Empty Spacer at End of Month
                     else {
                         html += `<div class="border-r border-b border-gray-800 bg-black/40"></div>`;
-                        isMonthComplete = true; // Mark done, but finish the loop to fill row
+                        isMonthComplete = true; 
                     }
                 }
             }
             container.innerHTML = html;
         }
-            const container = document.getElementById('calendar-grid');
-            const header = document.getElementById('calendar-header');
-            
-            const year = currentState.selectedYear;
-            const month = currentState.selectedMonth;
-            
-            header.innerText = `${monthNames[month]} ${year}`;
 
-            const firstDay = new Date(year, month, 1).getDay(); 
-            const startOffset = firstDay === 0 ? 6 : firstDay - 1; 
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-            let html = '';
-
-            for (let i = 0; i < startOffset; i++) {
-                html += `<div class="border-r border-b border-gray-800 bg-black/40"></div>`;
-            }
-
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dataKey = `${year}-${month}-${day}`;
-                const tasks = appData.days[dataKey] || [];
-                const isRealToday = (day === today.getDate() && month === today.getMonth() && year === today.getFullYear());
-
-                html += `
-                    <div class="border-r border-b border-gray-700 p-1 flex flex-col hover:bg-white/5 transition relative group/cell min-h-0 overflow-hidden">
-                        <div class="flex justify-between items-start shrink-0 mb-1">
-                            <span class="${isRealToday ? 'text-orange-500 font-bold' : 'text-gray-500'} text-xs">${day}</span>
-                            <button onclick="addItem('day', '${dataKey}')" class="text-gray-500 hover:text-white text-xs opacity-0 group-hover/cell:opacity-100">+</button>
-                        </div>
-                        <div class="flex-1 overflow-y-auto pr-0.5 custom-scrollbar">
-                            ${tasks.map(t => createItemHTML(t, 'day', dataKey)).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-            container.innerHTML = html;
-        
-
-        // --- 7. CORE LOGIC ---
+        // --- CORE LOGIC ---
         function addItem(type, key) {
-            const text = prompt("Enter task:");
+            const text = prompt("Enter task (use #tags):");
             if (!text) return;
-            const newItem = { id: Date.now(), text: text, done: false };
+            const newItem = { id: Date.now(), text: text, done: false, indent: 0 }; 
 
-            if (type === 'life') {
-                appData.life.push(newItem);
-            } else if (type === 'year') {
+            if (type === 'life') appData.life.push(newItem);
+            else if (type === 'year') {
                 if (!appData.years[key]) appData.years[key] = [];
                 appData.years[key].push(newItem);
             } else if (type === 'month') {
@@ -477,16 +491,43 @@
 
         function deleteTask(type, key, id) {
             if(!confirm("Delete?")) return;
-            if (type === 'life') {
-                appData.life = appData.life.filter(i => i.id !== id);
-            } else if (type === 'year') {
-                appData.years[key] = appData.years[key].filter(i => i.id !== id);
-            } else if (type === 'month') {
-                appData.months[key] = appData.months[key].filter(i => i.id !== id);
-            } else if (type === 'week') {
-                appData.weeks[key] = appData.weeks[key].filter(i => i.id !== id);
-            } else if (type === 'day') {
-                appData.days[key] = appData.days[key].filter(i => i.id !== id);
+            if (type === 'life') appData.life = appData.life.filter(i => i.id !== id);
+            else if (type === 'year') appData.years[key] = appData.years[key].filter(i => i.id !== id);
+            else if (type === 'month') appData.months[key] = appData.months[key].filter(i => i.id !== id);
+            else if (type === 'week') appData.weeks[key] = appData.weeks[key].filter(i => i.id !== id);
+            else if (type === 'day') appData.days[key] = appData.days[key].filter(i => i.id !== id);
+            saveData();
+        }
+
+        function moveItem(type, key, id, direction) {
+            let list;
+            if (type === 'life') list = appData.life;
+            else if (type === 'year') list = appData.years[key];
+            else if (type === 'month') list = appData.months[key];
+            else if (type === 'week') list = appData.weeks[key];
+            else if (type === 'day') list = appData.days[key];
+
+            const index = list.findIndex(i => i.id === id);
+            if (index === -1) return;
+            if (direction === -1 && index > 0) [list[index], list[index - 1]] = [list[index - 1], list[index]];
+            else if (direction === 1 && index < list.length - 1) [list[index], list[index + 1]] = [list[index + 1], list[index]];
+            saveData();
+        }
+
+        function changeIndent(type, key, id, delta) {
+            let list;
+            if (type === 'life') list = appData.life;
+            else if (type === 'year') list = appData.years[key];
+            else if (type === 'month') list = appData.months[key];
+            else if (type === 'week') list = appData.weeks[key];
+            else if (type === 'day') list = appData.days[key];
+
+            const item = list.find(i => i.id === id);
+            if (item) {
+                if (!item.indent) item.indent = 0;
+                item.indent += delta;
+                if (item.indent < 0) item.indent = 0;
+                if (item.indent > 6) item.indent = 6;
             }
             saveData();
         }
