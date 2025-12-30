@@ -81,12 +81,14 @@
 
         <br>
 
-        <div class="glass-panel rounded-lg p-0 overflow-hidden flex flex-col ">
-            <div class="grid grid-cols-7 border-b border-gray-700 bg-black/20 text-xs font-bold text-gray-400 py-1.5 text-center shrink-0">
-                <div>MO</div><div>TU</div><div>WE</div><div>TH</div><div>FR</div><div>SA</div><div>SU</div>
+<div class="glass-panel rounded-lg p-0 overflow-hidden flex flex-col h-full">
+            <div class="grid grid-cols-[2rem_repeat(7,1fr)] border-b border-gray-700 bg-black/20 text-xs font-bold text-gray-400 py-1.5 text-center shrink-0">
+                <div class="text-gray-600">#</div> <div>MO</div><div>TU</div><div>WE</div><div>TH</div><div>FR</div><div>SA</div><div>SU</div>
             </div>
+            
             <div id="calendar-header" class="text-sm text-center py-1 text-orange-500 font-bold bg-black/10 shrink-0"></div>
-            <div id="calendar-grid" class="grid grid-cols-7 grid-rows-6 h-full overflow-hidden"></div>
+            
+            <div id="calendar-grid" class="grid grid-cols-[2rem_repeat(7,1fr)] auto-rows-fr h-full overflow-y-auto"></div>
         </div>
 
     </div>
@@ -334,7 +336,83 @@
             }).join('');
         }
 
+// --- HELPER: ISO Week Number ---
+        function getWeekNumber(d) {
+            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+            var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+        }
+
+        // --- UPDATED RENDER CALENDAR ---
         function renderCalendar() {
+            const container = document.getElementById('calendar-grid');
+            const header = document.getElementById('calendar-header');
+            
+            const year = currentState.selectedYear;
+            const month = currentState.selectedMonth;
+            
+            header.innerText = `${monthNames[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1).getDay(); 
+            const startOffset = firstDay === 0 ? 6 : firstDay - 1; // Mon=0, Sun=6
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let html = '';
+            let currentDay = 1;
+            let isMonthComplete = false;
+
+            // We loop row by row (week by week) until we finish the month
+            while (!isMonthComplete) {
+                
+                // 1. Calculate Week Number for the first valid day of this row
+                // If it's the very first week, we use the 1st of the month.
+                // Otherwise, it's the current tracker day.
+                let weekDate = new Date(year, month, currentDay);
+                let weekNum = getWeekNumber(weekDate);
+
+                // Add Week Number Cell
+                html += `
+                    <div class="border-r border-b border-gray-800 bg-black/30 flex items-center justify-center text-[10px] text-gray-600 font-mono select-none">
+                        W${weekNum}
+                    </div>
+                `;
+
+                // 2. Loop through 7 days of the week (Mon-Sun)
+                for (let i = 0; i < 7; i++) {
+                    
+                    // A. Empty Spacer at Start of Month
+                    if (currentDay === 1 && i < startOffset) {
+                        html += `<div class="border-r border-b border-gray-800 bg-black/40"></div>`;
+                    }
+                    // B. Valid Day
+                    else if (currentDay <= daysInMonth) {
+                        const dataKey = `${year}-${month}-${currentDay}`;
+                        const tasks = appData.days[dataKey] || [];
+                        const isRealToday = (currentDay === today.getDate() && month === today.getMonth() && year === today.getFullYear());
+
+                        html += `
+                            <div class="border-r border-b border-gray-700 p-1 flex flex-col hover:bg-white/5 transition relative group/cell min-h-[80px] overflow-hidden">
+                                <div class="flex justify-between items-start shrink-0 mb-1">
+                                    <span class="${isRealToday ? 'text-orange-500 font-bold' : 'text-gray-500'} text-xs">${currentDay}</span>
+                                    <button onclick="addItem('day', '${dataKey}')" class="text-gray-500 hover:text-white text-xs opacity-0 group-hover/cell:opacity-100">+</button>
+                                </div>
+                                <div class="flex-1 overflow-y-auto pr-0.5 custom-scrollbar">
+                                    ${tasks.map(t => createItemHTML(t, 'day', dataKey)).join('')}
+                                </div>
+                            </div>
+                        `;
+                        currentDay++;
+                    }
+                    // C. Empty Spacer at End of Month
+                    else {
+                        html += `<div class="border-r border-b border-gray-800 bg-black/40"></div>`;
+                        isMonthComplete = true; // Mark done, but finish the loop to fill row
+                    }
+                }
+            }
+            container.innerHTML = html;
+        }
             const container = document.getElementById('calendar-grid');
             const header = document.getElementById('calendar-header');
             
@@ -371,7 +449,7 @@
                 `;
             }
             container.innerHTML = html;
-        }
+        
 
         // --- 7. CORE LOGIC ---
         function addItem(type, key) {
